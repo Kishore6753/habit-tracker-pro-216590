@@ -1,13 +1,17 @@
-const DEFAULT_BASE_URL = "http://localhost:3001";
+const DEFAULT_BASE_URL = 'http://localhost:3001';
 
 /**
  * Returns the configured API base URL.
- * Uses REACT_APP_API_BASE_URL if provided, otherwise defaults to localhost.
+ *
+ * Priority:
+ * - REACT_APP_API_BASE (requested standard)
+ * - REACT_APP_API_BASE_URL (legacy/backward compatible)
+ * - fallback to http://localhost:3001
  */
 function getApiBaseUrl() {
-  const raw = process.env.REACT_APP_API_BASE_URL;
+  const raw = process.env.REACT_APP_API_BASE || process.env.REACT_APP_API_BASE_URL;
   if (!raw) return DEFAULT_BASE_URL;
-  return raw.replace(/\/+$/, "");
+  return raw.replace(/\/+$/, '');
 }
 
 function safeJsonParse(text) {
@@ -51,6 +55,7 @@ export async function apiRequest(path, { method = "GET", token, body, headers } 
     res = await fetch(url, {
       method,
       headers: requestHeaders,
+      credentials: 'include',
       body: body ? JSON.stringify(body) : undefined,
     });
   } catch (e) {
@@ -77,13 +82,17 @@ export async function apiRequest(path, { method = "GET", token, body, headers } 
  */
 export const AuthApi = {
   async signIn({ email, password }) {
-    return apiRequest("/auth/login", { method: "POST", body: { email, password } });
+    return apiRequest('/auth/login', { method: 'POST', body: { email, password } });
   },
-  async signUp({ name, email, password }) {
-    return apiRequest("/auth/register", { method: "POST", body: { name, email, password } });
+  async signUp({ name: _name, email, password }) {
+    // Backend register endpoint currently supports { email, password }.
+    return apiRequest('/auth/register', { method: 'POST', body: { email, password } });
   },
   async me(token) {
-    return apiRequest("/auth/me", { method: "GET", token });
+    return apiRequest('/auth/me', { method: 'GET', token });
+  },
+  async logout() {
+    return apiRequest('/auth/logout', { method: 'POST' });
   },
 };
 
@@ -94,31 +103,37 @@ export const AuthApi = {
 export const HabitsApi = {
   async list({ token, q, frequency, category } = {}) {
     const params = new URLSearchParams();
-    if (q) params.set("q", q);
-    if (frequency) params.set("frequency", frequency);
-    if (category) params.set("category", category);
-    const suffix = params.toString() ? `?${params.toString()}` : "";
+    if (q) params.set('q', q);
+    if (frequency) params.set('frequency', frequency);
+    if (category) params.set('category', category);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
     return apiRequest(`/habits${suffix}`, { token });
   },
   async create({ token, habit }) {
-    return apiRequest("/habits", { method: "POST", token, body: habit });
+    return apiRequest('/habits', { method: 'POST', token, body: habit });
   },
   async update({ token, id, patch }) {
-    return apiRequest(`/habits/${id}`, { method: "PUT", token, body: patch });
+    return apiRequest(`/habits/${id}`, { method: 'PUT', token, body: patch });
   },
   async remove({ token, id }) {
-    return apiRequest(`/habits/${id}`, { method: "DELETE", token });
+    return apiRequest(`/habits/${id}`, { method: 'DELETE', token });
   },
-  async toggleCompletion({ token, id, periodKey, completed }) {
-    // periodKey could be date like 2026-02-10 for daily, or ISO week, or YYYY-MM for monthly.
-    return apiRequest(`/habits/${id}/completion`, {
-      method: "POST",
-      token,
-      body: { periodKey, completed },
-    });
+  async progress({ token, from, to }) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    const suffix = params.toString() ? `?${params.toString()}` : '';
+    return apiRequest(`/progress/summary${suffix}`, { token });
   },
-  async progress({ token }) {
-    return apiRequest("/progress/summary", { token });
+  async calendarMonth({ token, year, month }) {
+    const params = new URLSearchParams({ year: String(year), month: String(month) });
+    return apiRequest(`/calendar/month?${params.toString()}`, { token });
+  },
+  async markCompletion({ token, habitId, date }) {
+    return apiRequest(`/completions/${habitId}/mark`, { method: 'POST', token, body: { date } });
+  },
+  async unmarkCompletion({ token, habitId, date }) {
+    return apiRequest(`/completions/${habitId}/unmark`, { method: 'POST', token, body: { date } });
   },
 };
 
