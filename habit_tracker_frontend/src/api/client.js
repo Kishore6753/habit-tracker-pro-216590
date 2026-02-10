@@ -142,10 +142,16 @@ export const HabitsApi = {
  * Export endpoints (placeholder triggers).
  */
 export const ExportApi = {
-  async exportCsv({ token }) {
-    return apiRequest("/export/csv", { token });
+  async exportCsv({ token, from, to } = {}) {
+    const params = new URLSearchParams({ format: 'csv' });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return apiRequest(`/export?${params.toString()}`, { token });
   },
-  async exportPdf({ token }) {
-    return apiRequest("/export/pdf", { token });
+  async exportJson({ token, from, to } = {}) {
+    const params = new URLSearchParams({ format: 'json' });
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    return apiRequest(`/export?${params.toString()}`, { token });
   },
 };
